@@ -82,16 +82,16 @@ class BaseBatchEmulator(object):
         }
 
         if extra_vars == 'all':
-            extra_vars = list(info.keys()) if info != None else ()
+            extra_vars = list(info.keys()) if type(info) is not int else info
 
-        extra_vars = {var:None for var in extra_vars}
-        for var in extra_vars.keys():
-            if var not in info:
-                raise BatchEmulatorError(
-                    "{} is required but the emulators don't provide it!".format(var))
-            var_shape, dtype = shape_and_dtype(info[var])
-            var_shape = (num_em,) + var_shape
-            extra_vars[var] = np.zeros(var_shape, dtype=dtype)
+        #extra_vars = {var:None for var in extra_vars}
+        #for var in extra_vars.keys():
+        #    if var not in info:
+        #        raise BatchEmulatorError(
+        #            "{} is required but the emulators don't provide it!".format(var))
+        #    var_shape, dtype = shape_and_dtype(info[var])
+        #    var_shape = (num_em,) + var_shape
+        #    extra_vars[var] = np.zeros(var_shape, dtype=dtype)
 
         example_em.close()
         return input_vars, output_vars, extra_vars
@@ -132,7 +132,8 @@ class ConcurrentBatchEmulator(BaseBatchEmulator):
             setattr(self, k, get_shared(array))
         for k, array in outputs.items(): # default outputs: state, reward, is_done
             setattr(self, k, get_shared(array))
-        self.info = {k:get_shared(array) for k, array in extra_outputs.items()}
+        #self.info = {k:get_shared(array) for k, array in extra_outputs.items()}
+        self.info = extra_outputs
 
         self.worker_queues = [Queue() for _ in range(num_workers)]
         self.barrier = Queue()
@@ -144,7 +145,7 @@ class ConcurrentBatchEmulator(BaseBatchEmulator):
 
         ##### - mine
         self.enlarge = False
-        self.i = 0
+
 
     def _create_workers(self, env_creator, worker_cls):
         """
@@ -168,9 +169,12 @@ class ConcurrentBatchEmulator(BaseBatchEmulator):
             l, r = r, min(r+num_ems, self.num_emulators)
             worker_vars = {
                 'action': self.action[l:r], 'state': self.state[l:r],
-                'is_done': self.is_done[l:r],'reward': self.reward[l:r],
+                'is_done': self.is_done[l:r],'reward': self.reward[l:r]
+                #'info':self.info
             }
-            worker_extra_vars = {k:v[l:r] for k, v in self.info.items()}
+            #worker_extra_vars = {k:v[l:r] for k, v in self.info}
+            worker_extra_vars = self.info
+            print("batch", self.action, worker_extra_vars)
             create_ems = lambda l=l,r=r: [env_creator.create_environment(i) for i in range(l,r)]
 
             workers[wid] = worker_cls(
@@ -227,7 +231,6 @@ class ConcurrentBatchEmulator(BaseBatchEmulator):
         #wait until all emulators are updated:
         for _ in self.workers:
             self.barrier.get()
-
         return self.state, self.reward, self.is_done, self.info
 
 
@@ -243,7 +246,7 @@ class ConcurrentBatchEmulator(BaseBatchEmulator):
 
     def set_difficulty(self, len_int):
         # there we will set the new length of labyrinth
-
+        self.len_lab = len_int
         # send signals to workers to update their environments(emulators)
 
         for queue in self.worker_queues:
@@ -253,7 +256,7 @@ class ConcurrentBatchEmulator(BaseBatchEmulator):
             self.barrier.get()
         # wait until all emulators are updated:
 
-        return len_int
+        return self.len_lab
 
 
 class SequentialBatchEmulator(BaseBatchEmulator):
@@ -268,7 +271,8 @@ class SequentialBatchEmulator(BaseBatchEmulator):
         inputs, outputs, extra_outputs = self._create_variables(env_creator, extra_vars)
         for k, var in inputs.items(): setattr(self, k, var)
         for k, var in outputs.items(): setattr(self, k, var)
-        self.info = {k:var for k,var in extra_outputs.items()}
+        #self.info = {k:var for k,var in extra_outputs.items()}
+        self.info = extra_outputs
         self.auto_reset = auto_reset
         self.completed = [False]*num_emulators
         self.emulators = [env_creator.create_environment(i+init_env_id) for i in range(num_emulators)]
@@ -283,8 +287,9 @@ class SequentialBatchEmulator(BaseBatchEmulator):
         for i, em in enumerate(self.emulators):
             self.state[i], info = em.reset()
             self.completed[i] = False
-            for k in self.info:
-                self.info[k][i] = info[k]
+            self.info = info
+            #for k in self.info:
+            #    self.info[k][i] = info[k]
         return self.state, self.info
 
     def next(self, action):
@@ -304,8 +309,9 @@ class SequentialBatchEmulator(BaseBatchEmulator):
                     self.completed[i] = True
 
                 self.state[i] = new_s
-                for k in self.info:
-                    self.info[k][i] = info[k]
+                self.info = info
+                #for k in self.info:
+                #    self.info[k][i] = info[k]
             else:
                 self.reward[i] = 0
                 self.is_done[i] = True

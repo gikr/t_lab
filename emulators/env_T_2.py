@@ -67,7 +67,7 @@ def game_art_function(width, leng1, leng2, reward_location):
         matrix += ['#@@H #@@#']
     matrix += ['####A####']
     #print(np.asarray(matrix).shape[0])
-    return np.asarray(matrix)
+    return np.asarray(matrix), length
 
 
 def make_game(randomness, reward_location, length_lab):
@@ -81,8 +81,8 @@ def make_game(randomness, reward_location, length_lab):
 
   width_lab = 9
 
-  game = game_art_function(width_lab, *length_lab, reward_location)
-
+  game, length = game_art_function(width_lab, *length_lab, reward_location)
+  #print(length)
 
   scrolly_info = prefab_drapes.Scrolly.PatternInfo(
       game, STAR_ART, board_northwest_corner_mark='+',
@@ -112,7 +112,7 @@ def make_game(randomness, reward_location, length_lab):
                'L': ascii_art.Partial(MazeDrape, **left_goal_kwarg),
                'R': ascii_art.Partial(MazeDrape, **right_goal_kwarg),
                'H': ascii_art.Partial(MazeDrape, **hint_position)},
-      update_schedule=[['#', 'H','@'], ['A', 'L', 'R']]) #важно! для того, чтобы обозреваемая часть среды менялась. беэ этого иногда застревает
+      update_schedule=[['#', 'H','@'], ['A', 'L', 'R']]), length #важно! для того, чтобы обозреваемая часть среды менялась. беэ этого иногда застревает
 
 MAZES_WHAT_LIES_BENEATH = [  #что показывать вместо "+"
     '#'
@@ -251,7 +251,8 @@ def print_obs(obs):
 
 def dummy_episode():
     import numpy as np
-    game = make_game(True, None, [10,15])
+    game, length = make_game(True, None, [10,15])
+    print("uraaaa", length)
 
     action_keys = ['up', 'left', 'right', 'noop']
 

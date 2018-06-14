@@ -24,7 +24,8 @@ class TLabyrinthEmulator(BaseEnvironment):
         self.id = emulator_id
         self.length_int = [9,9]
 
-        self.game = make_game(False, self.reward_location, self.length_int)
+
+        self.game, self.resultinig_length = make_game(False, self.reward_location, self.length_int)
         obs_t, r_t, discount_t = self.game.its_showtime()
         obs_t = convert_obs(obs_t)
         self.observation_shape = obs_t.shape
@@ -34,11 +35,11 @@ class TLabyrinthEmulator(BaseEnvironment):
         """Starts a new episode and returns its initial state"""
         self.reward_location = np.random.choice([0,1]) #0 if np.random.rand() < 0.5 else 1
         #print("i don't knoooooow!", self.length_int)
-        self.game = make_game(False, self.reward_location, self.length_int)
+        self.game, self.resultinig_length = make_game(False, self.reward_location, self.length_int)
         obs_t, r_t, discount_t = self.game.its_showtime()
         obs = convert_obs(obs_t)
         
-        return obs, None
+        return obs, self.resultinig_length
 
     def next(self, action):
 
@@ -55,13 +56,13 @@ class TLabyrinthEmulator(BaseEnvironment):
                 print_obs(obs)
         termination = 1-discount
 
-        return convert_obs(obs), reward, termination, None
+        return convert_obs(obs), reward, termination, self.resultinig_length
 
 
     def set_length(self, length_interval):
         #print('it works', length_interval)
         self.length_int = length_interval
-        return self.length_int
+        return self.resultinig_length
 
 
     def get_legal_actions(self):
